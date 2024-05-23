@@ -1,7 +1,12 @@
 /**
- * nonstop_networking
- * CS 341 - Spring 2024
+ * @file server.c
+ * @brief Implementation of server-side communication functions.
+ *
+ * This file contains the main function and various utility functions to handle
+ * server-side communication. It supports handling client requests such as GET,
+ * PUT, LIST, and DELETE, and provides necessary error handling and data processing.
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,15 +27,25 @@
 
 #define MAX_CLIENTS 1000
 
-static int epollfd;
-static char* dir;
-static vector* file_vector;
-static dictionary* clientfd_to_cinfo;
+
+// Function declarations
 int handle_put(int client_file_descriptor);
 int handle_get(int client_file_descriptor);
 int handle_delete(int client_file_descriptor);
 int handle_list(int client_file_descriptor);
 int handle_client(int client_file_descriptor);
+void signal_handler(int signal);
+int init_server_socket(char* port);
+void quit_server();
+void create_server(char* port);
+ssize_t read_all_from_socket(int socket, char *buffer, size_t count, int is_header);
+ssize_t write_all_to_socket(int socket, const char *buffer, size_t count);
+
+// Global variables
+static int epollfd;
+static char* dir;
+static vector* file_vector;
+static dictionary* clientfd_to_cinfo;
 
 typedef struct cinfo_t {
     int fd;
@@ -41,112 +56,18 @@ typedef struct cinfo_t {
 } cinfo_t;
 
 
-void signal_handler(int signal);
-int init_server_socket(char* port);
-void quit_server();
-void create_server(char* port);
-ssize_t read_all_from_socket(int socket, char *buffer, size_t count, int is_header);
-ssize_t write_all_to_socket(int socket, const char *buffer, size_t count);
 
-ssize_t get_message_size(int client_file_descriptor) {
-    size_t message_size;
-    char *buffer = (char *)&message_size;
-    memset(buffer, 0, sizeof(size_t));
-    ssize_t status = read_all_from_socket(client_file_descriptor, (char *)&message_size, sizeof(size_t), 0);
-
-    if (status <= 0)
-        return status;
-
-    return message_size;
-}
-
-
-size_t read_all_from_socket_put(int socket, char *buffer, size_t count) {
-    size_t total_bytes_read = 0;
-    while (total_bytes_read < count) {
-        ssize_t result = read(socket, buffer + total_bytes_read, count - total_bytes_read);
-        if (result == 0) {  // No more data, normal termination
-            break;
-        }
-        if (result < 0) {  // Handle possible errors
-            if (errno == EINTR) continue;  // Interrupted, retry read
-            return -1;  // An error occurred, return -1
-        }
-        total_bytes_read += result;  // Increment the count of bytes read
-    }
-    return total_bytes_read == 0 ? 0 : total_bytes_read;
-}
-
-
-
-ssize_t read_all_from_socket(int socket, char *buffer, size_t count, int is_header) {
-    size_t bytes_read = 0;
-    while (bytes_read < count) {
-        int read_retval = read(socket, (void*) (buffer + bytes_read), 1);
-
-        if (is_header) {
-            if (read_retval == 0 || buffer[strlen(buffer) - 1] == '\n') {
-                return 0;
-            } else if (read_retval == -1 && errno == EINTR) {
-                continue;
-            } else if (read_retval > 0) {
-                bytes_read += read_retval;
-            } else {
-                return -1;
-            }
-        } else {
-            if (read_retval == 0) {
-                return 0;
-            } else if (read_retval == -1 && errno == EINTR) {
-                continue;
-            } else if (read_retval > 0) {
-                bytes_read += read_retval;
-            } else {
-                return -1;
-            }
-        }
-    }
-    return bytes_read;
-}
-
-
-ssize_t write_all_to_socket(int socket, const char *buffer, size_t count) {
-    size_t total = 0;
-    ssize_t bytes_written;
-
-    while (total < count) {
-        bytes_written = write(socket, buffer + total, count - total);
-        if (bytes_written == -1) {
-            if (errno == EINTR) continue;
-            return -1;
-        }
-        total += bytes_written;
-    }
-
-    return total;
-}
-
-void signal_handler(int signal) {
-}
-
-void quit_server() {
-    printf("Quitting server\n");
-
-    VECTOR_FOR_EACH(file_vector, file_name, {
-        char* path = NULL;
-        asprintf(&path, "%s/%s", dir, (char*)file_name);
-        unlink(path);
-        free(path);
-    });
-
-    vector_destroy(file_vector);
-    rmdir(dir);
-    close(epollfd);
-
-    exit(0);
-}
-
-
+/**
+ * @brief Main function to run the server program.
+ *
+ * This function initializes the server program, sets up signal handling, creates
+ * a temporary directory for file storage, and starts the server to listen for
+ * client connections.
+ *
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line arguments.
+ * @return int Exit status.
+ */
 int main(int argc, char **argv) {
 
     if (argc != 2) {
@@ -179,21 +100,16 @@ int main(int argc, char **argv) {
 }
 
 
-// Chat-gpt generated this function
-void sanitize_filename(char *filename) {
-    if (filename == NULL) return;
-    char *p = filename;
-    while (*p) {
-        if (*p == '\n' || *p == '\r') {
-            *p = '\0';  // Replace newline or carriage return with null terminator
-            break;
-        }
-        p++;
-    }
-}
 
-// I used GPT to generate a majority of this function. I told it specific things 
-// I wanted to use for the function and it completed.
+/**
+ * @brief Handles the GET command.
+ *
+ * This function processes a GET request from a client, retrieves the requested file,
+ * and sends it to the client.
+ *
+ * @param client_file_descriptor Client's file descriptor.
+ * @return int Status code.
+ */
 int handle_get(int client_file_descriptor) {
     printf("Starting GET\n");
 
@@ -271,8 +187,16 @@ int handle_get(int client_file_descriptor) {
     return 0;  // Indicate success
 }
 
-// I used GPT to generate a majority of this function. I told it specific things 
-// I wanted to use for the function and it completed.
+
+/**
+ * @brief Handles the PUT command.
+ *
+ * This function processes a PUT request from a client, receives the file data, and
+ * stores it on the server.
+ *
+ * @param client_file_descriptor Client's file descriptor.
+ * @return int Status code.
+ */
 int handle_put(int client_file_descriptor) {
     printf("Starting PUT\n");
 
@@ -384,10 +308,15 @@ int handle_put(int client_file_descriptor) {
 }
 
 
-
-
-// I used GPT to generate a majority of this function. I told it specific things 
-// I wanted to use for the function and it completed.
+/**
+ * @brief Handles the LIST command.
+ *
+ * This function processes a LIST request from a client and sends a list of files
+ * stored on the server to the client.
+ *
+ * @param client_file_descriptor Client's file descriptor.
+ * @return int Status code.
+ */
 int handle_list(int client_file_descriptor) {
 
     printf("Starting LIST\n");
@@ -433,8 +362,17 @@ int handle_list(int client_file_descriptor) {
     return 0;
 }
 
-// I used GPT to generate a majority of this function. I told it specific things 
-// I wanted to use for the function and it completed.
+
+
+/**
+ * @brief Handles the DELETE command.
+ *
+ * This function processes a DELETE request from a client and deletes the specified
+ * file from the server.
+ *
+ * @param client_file_descriptor Client's file descriptor.
+ * @return int Status code.
+ */
 int handle_delete(int client_file_descriptor) {
     printf("Starting DELETE\n");
 
@@ -482,6 +420,16 @@ int handle_delete(int client_file_descriptor) {
     return 0;
 }
 
+
+/**
+ * @brief Handles a client connection.
+ *
+ * This function reads the client's request, determines the command, and dispatches
+ * the appropriate handler function (GET, PUT, LIST, DELETE).
+ *
+ * @param client_file_descriptor Client's file descriptor.
+ * @return int Status code.
+ */
 int handle_client(int client_file_descriptor) {
     printf("Handling client %d\n", client_file_descriptor);
 
@@ -572,7 +520,15 @@ int handle_client(int client_file_descriptor) {
 
 
 
-// Copilot generated a majority of this code
+/**
+ * @brief Initializes the server socket.
+ *
+ * This function sets up the server socket, binds it to the specified port, and
+ * configures it to listen for incoming connections.
+ *
+ * @param port The port to bind the server socket to.
+ * @return int Server socket file descriptor.
+ */
 int init_server_socket(char* port) {
     int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_fd < 0) {
@@ -629,7 +585,15 @@ int init_server_socket(char* port) {
     return sock_fd;
 }
 
-// Copilot generated a majority of this code
+
+/**
+ * @brief Creates the server and starts listening for connections.
+ *
+ * This function initializes the server, sets up the epoll instance, and enters the
+ * main loop to handle client connections and requests.
+ *
+ * @param port The port to bind the server socket to.
+ */
 void create_server(char* port) {
 
     int sock_fd = init_server_socket(port);
@@ -695,3 +659,179 @@ void create_server(char* port) {
         }
     }
 }
+
+
+/**
+ * @brief Retrieves the size of an incoming message.
+ *
+ * This function reads the size of an incoming message from a client.
+ *
+ * @param client_file_descriptor Client's file descriptor.
+ * @return ssize_t Size of the incoming message, or -1 on error.
+ */
+ssize_t get_message_size(int client_file_descriptor) {
+    size_t message_size;
+    char *buffer = (char *)&message_size;
+    memset(buffer, 0, sizeof(size_t));
+    ssize_t status = read_all_from_socket(client_file_descriptor, (char *)&message_size, sizeof(size_t), 0);
+
+    if (status <= 0)
+        return status;
+
+    return message_size;
+}
+
+
+
+/**
+ * @brief Reads data from a socket for a PUT request.
+ *
+ * This function reads a specified number of bytes from a socket into a buffer,
+ * handling interruptions and ensuring all data is read for a PUT request.
+ *
+ * @param socket The socket to read from.
+ * @param buffer The buffer to store the read data.
+ * @param count The number of bytes to read.
+ * @return size_t Number of bytes read, or -1 on error.
+ */
+size_t read_all_from_socket_put(int socket, char *buffer, size_t count) {
+    size_t total_bytes_read = 0;
+    while (total_bytes_read < count) {
+        ssize_t result = read(socket, buffer + total_bytes_read, count - total_bytes_read);
+        if (result == 0) {  // No more data, normal termination
+            break;
+        }
+        if (result < 0) {  // Handle possible errors
+            if (errno == EINTR) continue;  // Interrupted, retry read
+            return -1;  // An error occurred, return -1
+        }
+        total_bytes_read += result;  // Increment the count of bytes read
+    }
+    return total_bytes_read == 0 ? 0 : total_bytes_read;
+}
+
+
+/**
+ * @brief Reads data from a socket.
+ *
+ * This function reads a specified number of bytes from a socket into a buffer,
+ * handling interruptions and ensuring all data is read.
+ *
+ * @param socket The socket to read from.
+ * @param buffer The buffer to store the read data.
+ * @param count The number of bytes to read.
+ * @param is_header Flag indicating if the read is for a header.
+ * @return ssize_t Number of bytes read, or -1 on error.
+ */
+ssize_t read_all_from_socket(int socket, char *buffer, size_t count, int is_header) {
+    size_t bytes_read = 0;
+    while (bytes_read < count) {
+        int read_retval = read(socket, (void*) (buffer + bytes_read), 1);
+
+        if (is_header) {
+            if (read_retval == 0 || buffer[strlen(buffer) - 1] == '\n') {
+                return 0;
+            } else if (read_retval == -1 && errno == EINTR) {
+                continue;
+            } else if (read_retval > 0) {
+                bytes_read += read_retval;
+            } else {
+                return -1;
+            }
+        } else {
+            if (read_retval == 0) {
+                return 0;
+            } else if (read_retval == -1 && errno == EINTR) {
+                continue;
+            } else if (read_retval > 0) {
+                bytes_read += read_retval;
+            } else {
+                return -1;
+            }
+        }
+    }
+    return bytes_read;
+}
+
+
+
+
+/**
+ * @brief Writes data to a socket.
+ *
+ * This function writes a specified number of bytes from a buffer to a socket,
+ * handling interruptions and ensuring all data is written.
+ *
+ * @param socket The socket to write to.
+ * @param buffer The buffer containing the data to write.
+ * @param count The number of bytes to write.
+ * @return ssize_t Number of bytes written, or -1 on error.
+ */
+ssize_t write_all_to_socket(int socket, const char *buffer, size_t count) {
+    size_t total = 0;
+    ssize_t bytes_written;
+
+    while (total < count) {
+        bytes_written = write(socket, buffer + total, count - total);
+        if (bytes_written == -1) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
+        total += bytes_written;
+    }
+
+    return total;
+}
+
+
+/**
+ * @brief Signal handler for server shutdown.
+ *
+ * This function handles signals such as SIGINT to gracefully shut down the server.
+ *
+ * @param signal The received signal.
+ */
+void signal_handler(int signal) {
+}
+
+
+/**
+ * @brief Quits the server and cleans up resources.
+ *
+ * This function shuts down the server, cleans up allocated resources, and exits
+ * the program.
+ */
+void quit_server() {
+    printf("Quitting server\n");
+
+    VECTOR_FOR_EACH(file_vector, file_name, {
+        char* path = NULL;
+        asprintf(&path, "%s/%s", dir, (char*)file_name);
+        unlink(path);
+        free(path);
+    });
+
+    vector_destroy(file_vector);
+    rmdir(dir);
+    close(epollfd);
+
+    exit(0);
+}
+
+/**
+ * @brief Cleans up a filename.
+ * 
+ * This function removes any newline or carriage return characters from a filename.
+ */
+void sanitize_filename(char *filename) {
+    if (filename == NULL) return;
+    char *p = filename;
+    while (*p) {
+        if (*p == '\n' || *p == '\r') {
+            *p = '\0';  // Replace newline or carriage return with null terminator
+            break;
+        }
+        p++;
+    }
+}
+

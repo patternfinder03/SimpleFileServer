@@ -1,7 +1,3 @@
-/**
- * nonstop_networking
- * CS 341 - Spring 2024
- */
 #pragma once
 #include <stddef.h>
 #include <sys/types.h>

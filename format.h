@@ -1,82 +1,104 @@
 /**
- * nonstop_networking
- * CS 341 - Spring 2024
+ * @file client_server_program.h
+ * @brief Header file for client-server communication program.
+ *
+ * This file contains the declarations for functions used in the client-server
+ * communication program. It provides utility functions for printing various
+ * messages related to the client's usage, error handling, and server communication.
  */
+
 #pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 
-// Error message sent by the server when it receives a malformed request
+/**
+ * @brief Error message for bad request.
+ */
 extern const char *err_bad_request;
 
-// Error message sent by the server when the client sends too little or too much
-// data
+/**
+ * @brief Error message for bad file size.
+ */
 extern const char *err_bad_file_size;
 
-// Error message sent by the sever when a client tries to GET or DELETE a non
-// existent file
+/**
+ * @brief Error message for no such file.
+ */
 extern const char *err_no_such_file;
 
 /**
- * Used in client.c in the event that command line arguments are missing or
- * trivially wrong; prints basic usage information.
+ * @brief Prints usage information for the client.
+ *
+ * This function displays the correct way to use the client program.
  */
 void print_client_usage(void);
 
 /**
- * Used in client.c in the event that the command line arguments to the client
- * program are invalid; prints more detailed usage information.
+ * @brief Prints help information for the client.
+ *
+ * This function displays detailed help information about the client's options and usage.
  */
 void print_client_help(void);
 
 /**
- * Use this function in client.c in the event that the client's connection
- * with the server is closed prematurely, and then exit the program.
+ * @brief Prints a message indicating that the connection has been closed.
+ *
+ * This function notifies the user that the connection to the server has been closed.
  */
 void print_connection_closed(void);
 
 /**
- * Use this function in client.c to print out the error message provided by the
- * server in the event that the server's status message is prefaced with
- * "ERROR\n".
+ * @brief Prints a specified error message.
+ *
+ * @param err The error message to print.
+ *
+ * This function displays the provided error message to the user.
  */
 void print_error_message(char *err);
 
 /**
- * Use this function in client.c and server.c in the event that the
- * client/server does not send a valid response or header as per the protocol
- * described in the docs.
+ * @brief Prints a message indicating an invalid response from the server.
+ *
+ * This function notifies the user that the response received from the server was invalid.
  */
 void print_invalid_response(void);
 
 /**
- * Use this function in client.c in the event that the
- * client received less bytes of file data than the
- * server had specified in its header.
+ * @brief Prints a message indicating that too little data was received.
+ *
+ * This function notifies the user that the amount of data received was insufficient.
  */
 void print_too_little_data(void);
 
 /**
- * Use this function in client.c in the event that it
- * is able to receive more bytes of file data than the
- * server had specified in its header.
+ * @brief Prints a message indicating that too much data was received.
+ *
+ * This function notifies the user that more data than expected was received.
  */
 void print_received_too_much_data(void);
 
 /**
- * Use this function in client.c if the server successfully fulfilled a PUT or
- * DELETE request.
+ * @brief Prints a success message.
+ *
+ * This function informs the user that the operation was successful.
  */
 void print_success(void);
 
 /**
- * Use this function in server.c after creating a temporary directory in order
- * to print out the name of the temporary directory to standard output.
+ * @brief Prints the temporary directory path.
+ *
+ * @param temp_directory The path to the temporary directory.
+ *
+ * This function displays the path to the temporary directory used by the program.
  */
 void print_temp_directory(char *temp_directory);
 
 /**
- * Used in server.c in the event that command line arguments are missing or
- * trivially wrong; prints basic usage information.
+ * @brief Prints usage information for the server.
+ *
+ * This function displays the correct way to use the server program.
  */
 void print_server_usage(void);
+
+#endif // CLIENT_SERVER_PROGRAM_H

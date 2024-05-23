@@ -1,18 +1,7 @@
-/**
- * nonstop_networking
- * CS 341 - Spring 2024
- */
 #include "format.h"
 
-// Error message sent by the server when it receives a malformed request
 const char *err_bad_request = "Bad request\n";
-
-// Error message sent by the server when the client sends too little or too much
-// data
 const char *err_bad_file_size = "Bad file size\n";
-
-// Error message sent by the sever when a client tries to GET or DELETE a non
-// existent file
 const char *err_no_such_file = "No such file\n";
 
 void print_client_usage() {

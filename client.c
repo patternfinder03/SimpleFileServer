@@ -1,7 +1,12 @@
 /**
- * nonstop_networking
- * CS 341 - Spring 2024
+ * @file client.c
+ * @brief Implementation of client communication functions.
+ *
+ * This file contains the main function and various utility functions to handle
+ * client-server communication. It supports various commands such as GET, PUT,
+ * LIST, and DELETE, and provides necessary error handling and data processing.
  */
+
 #include "format.h"
 #include <ctype.h>
 #include <stdbool.h>
@@ -15,6 +20,8 @@
 #include <errno.h>
 #include "common.h"
 
+
+// Function Declarations
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
 void handle_get(char **args);
@@ -30,12 +37,24 @@ bool has_content(char* filename);
 size_t get_file_size(char* filename);
 char* get_data_file(char* filename);
 
-
+// Global Variables
 static int server_socket;
 static char** args;
 static char* remote;
 static char* local;
 
+
+/**
+ * @brief Main function to run the client program.
+ *
+ * This function initializes the client program, parses the command-line arguments,
+ * establishes a connection to the server, and handles various commands such as
+ * GET, PUT, LIST, and DELETE.
+ *
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line arguments.
+ * @return int Exit status.
+ */
 int main(int argc, char **argv) {
     args = parse_args(argc, argv);
 
@@ -78,6 +97,14 @@ int main(int argc, char **argv) {
 }
 
 
+/**
+ * @brief Handles the GET command.
+ *
+ * This function sends a GET request to the server to retrieve a file. It processes
+ * the server's response and writes the received file data to the local file system.
+ *
+ * @param args Array of command-line arguments.
+ */
 void handle_get(char **args) {
     if (!remote || !local) {
         print_client_usage();
@@ -162,6 +189,14 @@ void handle_get(char **args) {
 }
 
 
+/**
+ * @brief Handles the PUT command.
+ *
+ * This function sends a PUT request to the server to upload a file. It reads the
+ * local file data and transmits it to the server, handling any errors that occur.
+ *
+ * @param args Array of command-line arguments.
+ */
 void handle_put(char **args) {
     if (!local || !remote) {
         print_client_usage();
@@ -250,6 +285,14 @@ void handle_put(char **args) {
 
 
 
+/**
+ * @brief Handles the LIST command.
+ *
+ * This function sends a LIST request to the server to retrieve a list of files.
+ * It processes the server's response and displays the list of files.
+ *
+ * @param args Array of command-line arguments.
+ */
 void handle_list(char **args) {
     char listRequest[] = "LIST\n";
     if (write_all_to_socket(listRequest, strlen(listRequest)) == -1) {
@@ -295,7 +338,16 @@ void handle_list(char **args) {
     close_client(1);
 }
 
-// Used GPT to generate this function
+
+
+/**
+ * @brief Handles the DELETE command.
+ *
+ * This function sends a DELETE request to the server to remove a file. It processes
+ * the server's response to ensure the file is deleted.
+ *
+ * @param args Array of command-line arguments.
+ */
 void handle_delete(char **args) {
     if (!remote) {
         print_client_usage();
@@ -343,14 +395,16 @@ void handle_delete(char **args) {
     close_client(1);
 }
 
+
 /**
- * Given commandline argc and argv, parses argv.
+ * @brief Parses command-line arguments.
  *
- * argc argc from main()
- * argv argv from main()
+ * This function parses the command-line arguments provided to the client program
+ * and returns them in a format suitable for further processing.
  *
- * Returns char* array in form of {host, port, method, remote, local, NULL}
- * where `method` is ALL CAPS
+ * @param argc Number of command-line arguments.
+ * @param argv Array of command-line arguments.
+ * @return char** Parsed arguments.
  */
 char **parse_args(int argc, char **argv) {
     if (argc < 3) {
@@ -382,13 +436,16 @@ char **parse_args(int argc, char **argv) {
     return args;
 }
 
+
+
 /**
- * Validates args to program.  If `args` are not valid, help information for the
- * program is printed.
+ * @brief Checks the parsed command-line arguments.
  *
- * args     arguments to parse
+ * This function checks the validity of the parsed command-line arguments and
+ * determines the command to be executed (GET, PUT, LIST, DELETE).
  *
- * Returns a verb which corresponds to the request method
+ * @param args Array of parsed command-line arguments.
+ * @return verb Command to be executed.
  */
 verb check_args(char **args) {
     if (args == NULL) {
@@ -430,6 +487,17 @@ verb check_args(char **args) {
     exit(1);
 }
 
+
+/**
+ * @brief Connects to the server.
+ *
+ * This function establishes a connection to the server using the provided host
+ * and port.
+ *
+ * @param host The server host.
+ * @param port The server port.
+ * @return int Server socket descriptor.
+ */
 int connect_to_server(const char *host, const char *port) {
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
@@ -464,6 +532,16 @@ int connect_to_server(const char *host, const char *port) {
 }
 
 
+/**
+ * @brief Reads all data from the socket.
+ *
+ * This function reads data from the server socket into the specified buffer, ensuring
+ * all requested data is received.
+ *
+ * @param buffer The buffer to store received data.
+ * @param count The number of bytes to read.
+ * @return ssize_t Number of bytes read, or -1 on error.
+ */
 ssize_t read_all_from_socket(char *buffer, size_t count) {
     size_t total = 0;
     ssize_t bytes_read = 0;
@@ -483,6 +561,17 @@ ssize_t read_all_from_socket(char *buffer, size_t count) {
     return total;
 }
 
+
+/**
+ * @brief Writes all data to the socket.
+ *
+ * This function writes the specified buffer data to the server socket, ensuring
+ * all data is sent.
+ *
+ * @param buffer The data buffer to send.
+ * @param count The number of bytes to send.
+ * @return ssize_t Number of bytes written, or -1 on error.
+ */
 ssize_t write_all_to_socket(const char *buffer, size_t count) {
     size_t total = 0;
     ssize_t bytes_written;
@@ -500,6 +589,13 @@ ssize_t write_all_to_socket(const char *buffer, size_t count) {
 }
 
 
+/**
+ * @brief Fetches the size of the incoming message.
+ *
+ * This function reads the size of the incoming message from the server socket.
+ *
+ * @return ssize_t Size of the incoming message, or -1 on error.
+ */
 ssize_t fetch_message_size() {
     size_t message_size;
     ssize_t status = read_all_from_socket((char *)&message_size, sizeof(size_t));
@@ -510,6 +606,16 @@ ssize_t fetch_message_size() {
     return message_size;
 }
 
+
+
+/**
+ * @brief Closes the client connection.
+ *
+ * This function closes the connection to the server and performs any necessary
+ * cleanup.
+ *
+ * @param success Indicator of whether the client operation was successful.
+ */
 void close_client(int* success) {
     if (args) free(args);
     
@@ -520,6 +626,15 @@ void close_client(int* success) {
     }
 }
 
+
+/**
+ * @brief Gets the data from a file.
+ *
+ * This function reads the data from the specified file into a buffer.
+ *
+ * @param filename The name of the file to read.
+ * @return char* Buffer containing the file data.
+ */
 char* get_data_file(char* filename) {
     if (!filename) {
         return NULL;
@@ -554,6 +669,16 @@ char* get_data_file(char* filename) {
     return buffer;
 }
 
+
+
+/**
+ * @brief Gets the size of a file.
+ *
+ * This function retrieves the size of the specified file.
+ *
+ * @param filename The name of the file.
+ * @return size_t Size of the file.
+ */
 size_t get_file_size(char* filename) {
     if (!filename) {
         return 0;
@@ -576,6 +701,15 @@ size_t get_file_size(char* filename) {
 }
 
 
+
+/**
+ * @brief Checks if a file has content.
+ *
+ * This function checks if the specified file contains any data.
+ *
+ * @param filename The name of the file to check.
+ * @return bool True if the file has content, false otherwise.
+ */
 bool has_content(char* filename) {
     if (!filename) {
         return false;
